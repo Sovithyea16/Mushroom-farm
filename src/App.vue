@@ -129,7 +129,11 @@ async function handleQuickSync() {
   // 1. If there are unsaved local changes, push first
   if (syncStatus.hasPendingChanges) {
     showToast('កំពុងបញ្ជូនទិន្នន័យថ្មីទៅ Google Sheets...', 'info')
-    await pushToGoogleSheets()
+    const pushRes = await pushToGoogleSheets()
+    if (!pushRes.success) {
+      showToast('បរាជ័យក្នុងការបញ្ជូនទិន្នន័យ៖ ' + pushRes.message, 'error', 'កំហុស Sync')
+      return
+    }
   }
 
   // 2. Pull latest data from Google Sheets to ensure all devices are synchronized

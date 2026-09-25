@@ -1,4 +1,4 @@
-import { reactive, computed, watch } from 'vue'
+import { reactive, computed, watch, nextTick } from 'vue'
 
 const KEY = 'mushroom-farm-v1'
 export const STAGES = ['ត្រៀមសម្ភារៈ', 'ក្រៀលមេរោគ', 'ដាក់មេ', 'លូតលាស់មេ', 'ចេញផ្សិត', 'ប្រមូលផល', 'បញ្ចប់']
@@ -101,6 +101,16 @@ const load = () => {
 
 export const state = reactive(load())
 watch(state, () => localStorage.setItem(KEY, JSON.stringify(state)), { deep: true })
+
+export const syncStatus = reactive({
+  loading: false,
+  saving: false,
+  lastSynced: (typeof localStorage !== 'undefined' ? localStorage.getItem('mushroom-last-synced') : null) || null,
+  error: null,
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+  hasPendingChanges: false,
+  autoSyncing: true,
+})
 
 // Realtime Database Auto-Sync Watcher & Mutex Lock
 export let isFetchingFromSheets = false
@@ -422,15 +432,6 @@ export function deleteUser(id) {
 // Google Sheets Database Sync Service
 export const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7WG2NvlzDF95GphvRGYCdCtB5a8CY8sYu_F88tHoFAH1uF-YBAGVTr8plb_-PSCOC/exec'
 
-export const syncStatus = reactive({
-  loading: false,
-  saving: false,
-  lastSynced: (typeof localStorage !== 'undefined' ? localStorage.getItem('mushroom-last-synced') : null) || null,
-  error: null,
-  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
-  hasPendingChanges: false,
-  autoSyncing: true,
-})
 
 const cleanDate = (d) => {
   if (!d) return ''
@@ -448,10 +449,42 @@ export async function pushToGoogleSheets() {
       harvests: state.harvests,
       incomes: state.incomes,
       expenses: state.expenses,
-      workers: state.workers,
+      workers: state.workers.map(w => ({
+        id: w.id,
+        name: w.name,
+        phone: w.phone,
+        role: w.role,
+        rate: w.baseRate !== undefined ? w.baseRate : w.rate,
+        unit: w.wageType !== undefined ? w.wageType : w.unit,
+        status: w.status,
+        address: w.address,
+        joinDate: w.startDate !== undefined ? w.startDate : w.joinDate,
+        note: w.notes !== undefined ? w.notes : w.note
+      })),
       wages: state.wages,
-      materials: state.materials,
-      stockMovements: state.stockMovements,
+      materials: state.materials.map(m => ({
+        id: m.id,
+        name: m.name,
+        cat: m.cat,
+        unit: m.unit,
+        qty: m.currentStock !== undefined ? m.currentStock : m.qty,
+        minQty: m.minStock !== undefined ? m.minStock : m.minQty,
+        price: m.unitCost !== undefined ? m.unitCost : m.price,
+        supplier: m.supplier,
+        note: m.notes !== undefined ? m.notes : m.note
+      })),
+      stockMovements: state.stockMovements.map(s => ({
+        id: s.id,
+        materialId: s.materialId,
+        type: s.type,
+        qty: s.qty,
+        unit: s.unit || '',
+        cost: s.totalCost !== undefined ? s.totalCost : s.cost,
+        date: s.date,
+        batchId: s.batchId,
+        reason: s.reason || '',
+        note: s.note
+      })),
       users: state.users.map(u => ({
         id: u.id,
         name: u.name,
@@ -463,7 +496,7 @@ export async function pushToGoogleSheets() {
         permissions: typeof u.permissions === 'object' ? JSON.stringify(u.permissions) : (u.permissions || '')
       })),
       settings: [{
-        farm: state.settings.farm || '',
+        farm: state.settings.farmName || state.settings.farm || '',
         owner: state.settings.owner || '',
         phone: state.settings.phone || '',
         address: state.settings.address || '',
@@ -494,7 +527,6 @@ export async function pushToGoogleSheets() {
     return { success: false, message: err.message }
   } finally {
     syncStatus.loading = false
-    isFetchingFromSheets = false
   }
 }
 
@@ -613,7 +645,10 @@ export async function fetchFromGoogleSheets(quiet = false) {
         state.workers = data.workers.map(w => ({
           ...w,
           id: +w.id || w.id,
-          rate: +w.rate || 0,
+          baseRate: +w.rate || 0,
+          wageType: w.unit || '?.?',
+          startDate: cleanDate(w.joinDate) || '',
+          notes: w.note || '',
         }))
       }
       if (Array.isArray(data.wages)) {
@@ -635,9 +670,10 @@ export async function fetchFromGoogleSheets(quiet = false) {
         state.materials = data.materials.map(m => ({
           ...m,
           id: +m.id || m.id,
-          qty: +m.qty || 0,
-          minQty: +m.minQty || 0,
-          price: +m.price || 0,
+          currentStock: +m.qty || 0,
+          minStock: +m.minQty || 0,
+          unitCost: +m.price || 0,
+          notes: m.note || '',
         }))
       }
       if (Array.isArray(data.stockMovements)) {
@@ -647,7 +683,7 @@ export async function fetchFromGoogleSheets(quiet = false) {
           materialId: +s.materialId || s.materialId,
           batchId: s.batchId ? (+s.batchId || s.batchId) : '',
           qty: +s.qty || 0,
-          cost: +s.cost || 0,
+          totalCost: +s.cost || 0,
           date: cleanDate(s.date),
         }))
       }
@@ -678,7 +714,7 @@ export async function fetchFromGoogleSheets(quiet = false) {
       }
       if (Array.isArray(data.settings) && data.settings.length) {
         const s = data.settings[0]
-        if (s.farm) state.settings.farm = s.farm
+        if (s.farm) state.settings.farmName = s.farm
         if (s.owner) state.settings.owner = s.owner
         if (s.phone) state.settings.phone = s.phone
         if (s.address) state.settings.address = s.address
@@ -708,7 +744,7 @@ export async function fetchFromGoogleSheets(quiet = false) {
     return { success: false, message: err.message }
   } finally {
     syncStatus.loading = false
-    isFetchingFromSheets = false
+    nextTick(() => { isFetchingFromSheets = false })
   }
 }
 
