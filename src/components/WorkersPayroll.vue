@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import {
   state,
   money,
@@ -17,7 +17,10 @@ import {
   exportToCSV,
   showToast,
   askConfirm,
-  isAdmin
+  isAdmin,
+  addAttendance,
+  updateAttendance,
+  deleteAttendance
 } from '../store'
 
 // Current active sub-tab view: 'analytics' | 'wages' | 'workers'
