@@ -598,58 +598,58 @@ function exportPayrollCSV() {
     <!-- ===================================================================== -->
     <!-- VIEW 4: ATTENDANCES -->
     <!-- ===================================================================== -->
-    <div v-if="view === 'attendances'" class="attendances-view card mb-4">
+        <div v-if="view === 'attendances'" class="attendances-view card mb-4">
       <div class="card-header flex-header">
         <h3><i class="fa-solid fa-calendar-check"></i> កត់ត្រាវត្តមានប្រចាំថ្ងៃ</h3>
         <div class="header-filters">
-          <input type="date" v-model="attendanceDate" class="input filter-input" />
+          <input type="date" v-model="attendanceDate" class="form-control" style="width: 150px;" />
         </div>
       </div>
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table">
+      <div class="card-body" style="padding: 12px;">
+        <div class="scroll-table-wrapper">
+          <table class="data-table">
             <thead>
               <tr>
                 <th>ឈ្មោះកម្មករ</th>
                 <th>តួនាទី</th>
                 <th>ស្ថានភាពវត្តមាន</th>
                 <th>កំណត់សម្គាល់</th>
-                <th>សកម្មភាព</th>
+                <th style="width: 100px; text-align: center;">សកម្មភាព</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="w in activeWorkersList" :key="w.id">
                 <td>
-                  <strong>{{ w.name }}</strong>
+                  <strong style="font-size: 14px;">{{ w.name }}</strong>
                   <div class="text-muted" style="font-size: 0.8rem">{{ w.phone || 'គ្មានលេខ' }}</div>
                 </td>
-                <td>{{ w.role }}</td>
+                <td><span class="badge" style="background: var(--bg-hover);">{{ w.role }}</span></td>
                 <td>
                   <div class="status-radios" v-if="dailyAttendances[w.id]">
                     <label class="radio-label">
                       <input type="radio" :name="'status_'+w.id" value="វត្តមាន" v-model="dailyAttendances[w.id].status" @change="saveAttendance(w.id)" />
-                      <span class="badge success">វត្តមាន (1)</span>
+                      <span class="att-badge att-success">វត្តមាន (1)</span>
                     </label>
                     <label class="radio-label">
                       <input type="radio" :name="'status_'+w.id" value="កន្លះថ្ងៃ" v-model="dailyAttendances[w.id].status" @change="saveAttendance(w.id)" />
-                      <span class="badge warning">កន្លះថ្ងៃ (0.5)</span>
+                      <span class="att-badge att-warning">កន្លះថ្ងៃ (0.5)</span>
                     </label>
                     <label class="radio-label">
                       <input type="radio" :name="'status_'+w.id" value="អវត្តមាន" v-model="dailyAttendances[w.id].status" @change="saveAttendance(w.id)" />
-                      <span class="badge danger">អវត្តមាន (0)</span>
+                      <span class="att-badge att-danger">អវត្តមាន (0)</span>
                     </label>
                     <label class="radio-label">
                       <input type="radio" :name="'status_'+w.id" value="ច្បាប់" v-model="dailyAttendances[w.id].status" @change="saveAttendance(w.id)" />
-                      <span class="badge bg-secondary">ច្បាប់ (0)</span>
+                      <span class="att-badge att-secondary">ច្បាប់ (0)</span>
                     </label>
                   </div>
                 </td>
                 <td>
-                  <input type="text" v-if="dailyAttendances[w.id]" v-model="dailyAttendances[w.id].note" @blur="saveAttendance(w.id)" class="input" placeholder="មូលហេតុ..." style="width: 120px;" />
+                  <input type="text" v-if="dailyAttendances[w.id]" v-model="dailyAttendances[w.id].note" @blur="saveAttendance(w.id)" class="form-control" placeholder="មូលហេតុ..." style="width: 140px; min-height: 36px; font-size: 13px;" />
                 </td>
-                <td>
-                  <span v-if="dailyAttendances[w.id] && dailyAttendances[w.id].wageId" class="badge bg-secondary">បានទូទាត់រួច</span>
-                  <span v-else-if="dailyAttendances[w.id] && dailyAttendances[w.id].id" class="text-emerald" style="font-size: 0.85rem;"><i class="fa-solid fa-check-circle"></i> រក្សាទុក</span>
+                <td style="text-align: center;">
+                  <span v-if="dailyAttendances[w.id] && dailyAttendances[w.id].wageId" class="att-badge att-secondary" style="font-size: 11px;">បានទូទាត់រួច</span>
+                  <span v-else-if="dailyAttendances[w.id] && dailyAttendances[w.id].id" class="text-emerald" style="font-size: 13px;"><i class="fa-solid fa-check-circle"></i> រក្សាទុក</span>
                 </td>
               </tr>
               <tr v-if="!activeWorkersList.length">
@@ -660,7 +660,6 @@ function exportPayrollCSV() {
         </div>
       </div>
     </div>
-
     <!-- VIEW 1: ANALYTICS & DASHBOARD (សូមវិភាគ) -->
     <!-- ===================================================================== -->
     <div v-if="view === 'analytics'" class="analytics-view">
@@ -2211,5 +2210,15 @@ function exportPayrollCSV() {
 .status-radios { display: flex; gap: 10px; align-items: center; }
 .radio-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .radio-label input { margin: 0; }
+
+
+.att-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; display: inline-block; }
+.att-success { background: rgba(56, 161, 105, 0.15); color: var(--inc); border: 1px solid rgba(56, 161, 105, 0.3); }
+.att-warning { background: rgba(221, 107, 32, 0.15); color: var(--exp); border: 1px solid rgba(221, 107, 32, 0.3); }
+.att-danger { background: rgba(229, 62, 62, 0.15); color: var(--bad); border: 1px solid rgba(229, 62, 62, 0.3); }
+.att-secondary { background: var(--bg-hover); color: var(--mu); border: 1px solid var(--ln); }
+.status-radios { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.radio-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.radio-label input { width: 16px; height: 16px; cursor: pointer; }
 
 </style>
