@@ -10,7 +10,7 @@ const blank = () => Object.fromEntries(fields.map(([k, , ty, o]) => [k, ty === '
 const draft = reactive(blank())
 
 // Reactive check if batch selection is required
-const needBatch = computed(() => props.t !== 'batches' && props.t !== 'expenses' && !state.batches.length)
+const needBatch = computed(() => props.t === 'harvests' && !state.batches.length)
 
 const rows = computed(() => {
   const r = [...state[props.t]]
@@ -37,11 +37,23 @@ function add() {
   for (const [k, , ty] of fields) {
     let v = draft[k]
     if (ty === 'num') v = +v || 0
-    if (ty === 'batch') { if (!v) return; v = +v }
-    if (ty === 'batchg') v = v === '' ? '' : +v
-    if (ty === 'text' && k === 'code' && !v) return
+    if (ty === 'batch') {
+      if (!v) {
+        showToast('សូមជ្រើសរើសវគ្គផលិតកម្ម!', 'error', 'ខ្វះទិន្នន័យ')
+        return
+      }
+      v = +v || v
+    }
+    if (ty === 'batchg') {
+      v = (v === '' || v === null || v === undefined) ? '' : (+v || v)
+    }
+    if (ty === 'text' && k === 'code' && !v) {
+      showToast('សូមបញ្ចូលលេខកូដវគ្គ!', 'error', 'ខ្វះទិន្នន័យ')
+      return
+    }
     rec[k] = v
   }
+
   if (props.t === 'batches') {
     if (!rec.code || !String(rec.code).trim()) {
       showToast('សូមបញ្ចូលលេខកូដវគ្គ!', 'error', 'ខ្វះទិន្នន័យ')
@@ -52,6 +64,18 @@ function add() {
       return
     }
   }
+
+  if (props.t === 'incomes') {
+    if (!rec.kg || rec.kg <= 0) {
+      showToast('សូមបញ្ចូលទម្ងន់ផ្សិតដែលបានលក់ (គ.ក) ឱ្យធំជាង 0!', 'error', 'ខ្វះទិន្នន័យ')
+      return
+    }
+    if (!rec.price || rec.price <= 0) {
+      showToast('សូមបញ្ចូលតម្លៃលក់ក្នុង ១ គ.ក ឱ្យធំជាង 0!', 'error', 'ខ្វះទិន្នន័យ')
+      return
+    }
+  }
+
   state[props.t].push(rec)
   Object.assign(draft, blank())
   showToast('បានកត់ត្រាទិន្នន័យថ្មីដោយជោគជ័យ!', 'success', tabTitleKhmer.value)
@@ -107,12 +131,22 @@ function saveEdit() {
   if (idx !== -1) {
     for (const [k, , ty] of fields) {
       if (ty === 'num') editDraft.value[k] = +editDraft.value[k] || 0
-      if (ty === 'batch') editDraft.value[k] = +editDraft.value[k]
-      if (ty === 'batchg') editDraft.value[k] = editDraft.value[k] === '' ? '' : +editDraft.value[k]
+      if (ty === 'batch') editDraft.value[k] = +editDraft.value[k] || editDraft.value[k]
+      if (ty === 'batchg') editDraft.value[k] = editDraft.value[k] === '' ? '' : (+editDraft.value[k] || editDraft.value[k])
     }
     if (props.t === 'batches') {
       if (editDraft.value.bags === null || editDraft.value.bags === undefined || editDraft.value.bags === '' || editDraft.value.bags <= 0) {
         showToast('សូមបញ្ចូលចំនួនថង់ផ្សិត (ត្រូវតែធំជាង 0)!', 'warning', 'ខ្វះចំនួនថង់')
+        return
+      }
+    }
+    if (props.t === 'incomes') {
+      if (!editDraft.value.kg || editDraft.value.kg <= 0) {
+        showToast('សូមបញ្ចូលទម្ងន់ផ្សិតដែលបានលក់ (គ.ក) ឱ្យធំជាង 0!', 'warning', 'ខ្វះទិន្នន័យ')
+        return
+      }
+      if (!editDraft.value.price || editDraft.value.price <= 0) {
+        showToast('សូមបញ្ចូលតម្លៃលក់ក្នុង ១ គ.ក ឱ្យធំជាង 0!', 'warning', 'ខ្វះទិន្នន័យ')
         return
       }
     }

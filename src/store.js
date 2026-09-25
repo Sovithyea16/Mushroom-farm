@@ -745,7 +745,7 @@ export const FIELDS = {
   },
   get incomes() {
     return [
-      ['batch', 'វគ្គ', 'batch', null, 'fa-solid fa-layer-group'],
+      ['batch', 'វគ្គ', 'batchg', null, 'fa-solid fa-layer-group'],
       ['date', 'ថ្ងៃ', 'date', null, 'fa-solid fa-calendar-day'],
       ['saleType', 'ប្រភេទលក់', 'sel', ['លក់ដុំ', 'លក់រាយ'], 'fa-solid fa-store'],
       ['cust', 'អតិថិជន', 'text', null, 'fa-solid fa-user'],
@@ -768,15 +768,16 @@ export const uid = () => Date.now() + Math.floor(Math.random() * 100000)
 export const sum = (a, k) => a.reduce((t, x) => t + (+x[k] || 0), 0)
 export const fmt = (n) => (Math.round((+n || 0) * 100) / 100).toLocaleString('en-US')
 export const money = (n) => (state.cur === '$' ? '$' + fmt(n) : fmt(n) + ' ៛')
-export const bname = (id) => state.batches.find((b) => b.id === id)?.code ?? 'ទូទៅ'
+export const bname = (id) => state.batches.find((b) => String(b.id).trim() === String(id).trim())?.code ?? 'ទូទៅ'
 export const sale = (x) => (+x.kg || 0) * (+x.price || 0)
 
 export const stats = computed(() => {
   const rows = state.batches.map((b) => {
-    const kg = sum(state.harvests.filter((x) => x.batch === b.id), 'kg')
-    const bad = sum(state.harvests.filter((x) => x.batch === b.id), 'bad')
-    const inc = state.incomes.filter((x) => x.batch === b.id).reduce((t, x) => t + sale(x), 0)
-    const exp = sum(state.expenses.filter((x) => x.batch === b.id), 'amt')
+    const bIdStr = String(b.id).trim()
+    const kg = sum(state.harvests.filter((x) => String(x.batch).trim() === bIdStr), 'kg')
+    const bad = sum(state.harvests.filter((x) => String(x.batch).trim() === bIdStr), 'bad')
+    const inc = state.incomes.filter((x) => String(x.batch).trim() === bIdStr).reduce((t, x) => t + sale(x), 0)
+    const exp = sum(state.expenses.filter((x) => String(x.batch).trim() === bIdStr), 'amt')
     return { b, kg, bad, inc, exp, profit: inc - exp, badPct: b.bags ? (bad / b.bags) * 100 : 0, perBag: b.bags ? kg / b.bags : 0, perBagKham: b.bags ? (kg / b.bags) * 10 : 0, cost: kg ? exp / kg : null }
   })
   const income = state.incomes.reduce((t, x) => t + sale(x), 0)
