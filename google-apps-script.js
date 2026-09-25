@@ -29,7 +29,8 @@ function doGet(e) {
     materials: getSheetData(ss, 'Materials', ['id', 'name', 'cat', 'unit', 'qty', 'minQty', 'price', 'supplier', 'note']),
     stockMovements: getSheetData(ss, 'StockMovements', ['id', 'materialId', 'type', 'qty', 'unit', 'cost', 'date', 'batchId', 'reason', 'note']),
     users: getSheetData(ss, 'Users', ['id', 'name', 'username', 'role', 'pin', 'status', 'address', 'permissions']),
-    settings: getSheetData(ss, 'Settings', ['farm', 'owner', 'phone', 'address', 'rate', 'cur', 'types', 'cats'])
+    settings: getSheetData(ss, 'Settings', ['farm', 'owner', 'phone', 'address', 'rate', 'cur', 'types', 'cats']),
+    attendances: getSheetData(ss, 'Attendances', ['id', 'workerId', 'date', 'status', 'wageId', 'note'])
   };
 
   return ContentService.createTextOutput(JSON.stringify(data))
