@@ -82,6 +82,7 @@ const load = () => {
       wages: raw.wages || [],
       materials: raw.materials || [],
       stockMovements: raw.stockMovements || [],
+      attendances: raw.attendances || [],
       users: (raw.users && Array.isArray(raw.users) && raw.users.length)
         ? raw.users.map(u => ({
             ...u,
@@ -95,7 +96,7 @@ const load = () => {
       settings: s,
     }
   } catch {
-    return { batches: [], harvests: [], incomes: [], expenses: [], workers: [], wages: [], materials: [], stockMovements: [], users: JSON.parse(JSON.stringify(DEFAULT_USERS)), cur: '៛', settings: { ...defaultSettings } }
+    return { batches: [], harvests: [], incomes: [], expenses: [], workers: [], wages: [], materials: [], stockMovements: [], attendances: [], users: JSON.parse(JSON.stringify(DEFAULT_USERS)), cur: '៛', settings: { ...defaultSettings } }
   }
 }
 
@@ -485,6 +486,14 @@ export async function pushToGoogleSheets() {
         reason: s.reason || '',
         note: s.note
       })),
+      attendances: state.attendances.map(a => ({
+        id: a.id,
+        workerId: a.workerId,
+        date: a.date,
+        status: a.status,
+        wageId: a.wageId,
+        note: a.note
+      })),
       users: state.users.map(u => ({
         id: u.id,
         name: u.name,
@@ -685,6 +694,16 @@ export async function fetchFromGoogleSheets(quiet = false) {
           qty: +s.qty || 0,
           totalCost: +s.cost || 0,
           date: cleanDate(s.date),
+        }))
+      }
+      
+      if (Array.isArray(data.attendances)) {
+        state.attendances = data.attendances.map(a => ({
+          ...a,
+          id: +a.id || a.id,
+          workerId: +a.workerId || a.workerId,
+          wageId: a.wageId ? (+a.wageId || a.wageId) : null,
+          date: cleanDate(a.date),
         }))
       }
       if (Array.isArray(data.users) && data.users.length) {
@@ -1333,3 +1352,16 @@ export function deleteStockMovement(id) {
 }
 
 
+
+
+export function addAttendance(p) {
+  const item = { ...p, id: uid() }
+  state.attendances.unshift(item)
+}
+export function updateAttendance(id, p) {
+  const i = state.attendances.findIndex(x => x.id === id)
+  if (i >= 0) Object.assign(state.attendances[i], p)
+}
+export function deleteAttendance(id) {
+  state.attendances = state.attendances.filter(x => x.id !== id)
+}

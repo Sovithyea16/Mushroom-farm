@@ -17,11 +17,14 @@ import {
   exportToCSV,
   showToast,
   askConfirm,
-  isAdmin
+  isAdmin,
+  addAttendance,
+  updateAttendance,
+  deleteAttendance
 } from '../store'
 
 // Current active sub-tab view: 'analytics' | 'wages' | 'workers'
-const view = ref('analytics')
+const view = ref('attendances')
 
 // Filters for Wage Records
 const searchWage = ref('')
@@ -438,7 +441,7 @@ function exportPayrollCSV() {
         </div>
 
         <div class="header-actions-group no-print">
-          <button class="btn btn-primary" @click="openAddWageModal()">
+          <button class="btn btn-primary" @click="openAddWageModalAuto()">
             <i class="fa-solid fa-hand-holding-dollar"></i>
             <span>កត់ត្រាប្រាក់ឈ្នួល</span>
           </button>
@@ -455,6 +458,13 @@ function exportPayrollCSV() {
 
       <!-- Navigation Sub-Tabs -->
       <div class="sub-nav-tabs mt-3 no-print">
+        <button 
+          :class="['sub-tab-btn', { active: view === 'attendances' }]" 
+          @click="view = 'attendances'"
+        >
+          <i class="fa-solid fa-calendar-check"></i>
+          <span>?????????????</span>
+        </button>
         <button 
           :class="['sub-tab-btn', { active: view === 'analytics' }]" 
           @click="view = 'analytics'"
@@ -480,6 +490,73 @@ function exportPayrollCSV() {
     </div>
 
     <!-- ===================================================================== -->
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 4: ATTENDANCES (???????) -->
+    <!-- ===================================================================== -->
+    <div v-if="view === 'attendances'" class="attendances-view card mb-4">
+      <div class="card-header flex-header">
+        <h3><i class="fa-solid fa-calendar-check"></i> ????????????????????????</h3>
+        <div class="header-filters">
+          <input type="date" v-model="attendanceDate" class="input filter-input" />
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>???????????</th>
+                <th>??????</th>
+                <th>???????????????</th>
+                <th>????????????</th>
+                <th>????????</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="w in activeWorkersList" :key="w.id">
+                <td>
+                  <strong>{{ w.name }}</strong>
+                  <div class="text-muted" style="font-size: 0.8rem">{{ w.phone || '????????' }}</div>
+                </td>
+                <td>{{ w.role }}</td>
+                <td>
+                  <div class="status-radios">
+                    <label class="radio-label">
+                      <input type="radio" :name="'status_'+w.id" value="???????" v-model="getAttendance(w.id).status" @change="saveAttendance(w.id)" />
+                      <span class="badge success">??????? (1)</span>
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" :name="'status_'+w.id" value="?????????" v-model="getAttendance(w.id).status" @change="saveAttendance(w.id)" />
+                      <span class="badge warning">????????? (0.5)</span>
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" :name="'status_'+w.id" value="????????" v-model="getAttendance(w.id).status" @change="saveAttendance(w.id)" />
+                      <span class="badge danger">???????? (0)</span>
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" :name="'status_'+w.id" value="??????" v-model="getAttendance(w.id).status" @change="saveAttendance(w.id)" />
+                      <span class="badge bg-secondary">?????? (0)</span>
+                    </label>
+                  </div>
+                </td>
+                <td>
+                  <input type="text" v-model="getAttendance(w.id).note" @blur="saveAttendance(w.id)" class="input" placeholder="???????..." style="width: 120px;" />
+                </td>
+                <td>
+                  <span v-if="getAttendance(w.id).wageId" class="badge bg-secondary">????????????</span>
+                  <span v-else-if="getAttendance(w.id).id" class="text-emerald" style="font-size: 0.85rem;"><i class="fa-solid fa-check-circle"></i> ????????</span>
+                </td>
+              </tr>
+              <tr v-if="!activeWorkersList.length">
+                <td colspan="5" class="text-center text-muted py-4">???????????????????</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- VIEW 1: ANALYTICS & DASHBOARD (សូមវិភាគ) -->
     <!-- ===================================================================== -->
     <div v-if="view === 'analytics'" class="analytics-view">
@@ -2026,4 +2103,9 @@ function exportPayrollCSV() {
     padding: 20px;
   }
 }
+
+.status-radios { display: flex; gap: 10px; align-items: center; }
+.radio-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.radio-label input { margin: 0; }
+
 </style>

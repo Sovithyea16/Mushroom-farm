@@ -52,6 +52,7 @@ function doPost(e) {
     if (data.stockMovements) saveSheetData(ss, 'StockMovements', ['id', 'materialId', 'type', 'qty', 'unit', 'cost', 'date', 'batchId', 'reason', 'note'], data.stockMovements);
     if (data.users) saveSheetData(ss, 'Users', ['id', 'name', 'username', 'role', 'pin', 'status', 'address', 'permissions'], data.users);
     if (data.settings) saveSheetData(ss, 'Settings', ['farm', 'owner', 'phone', 'address', 'rate', 'cur', 'types', 'cats'], data.settings);
+    if (data.attendances) saveSheetData(ss, 'Attendances', ['id', 'workerId', 'date', 'status', 'wageId', 'note'], data.attendances);
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Synced successfully' }))
       .setMimeType(ContentService.MimeType.JSON);
