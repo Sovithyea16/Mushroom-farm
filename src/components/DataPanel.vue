@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, computed, ref } from 'vue'
-import { state, FIELDS, STAGES, uid, fmt, money, bname, removeBatch, isAdmin, syncStatus, sum, sale, showToast, askConfirm } from '../store'
+import { state, FIELDS, STAGES, uid, fmt, money, bname, removeBatch, isAdmin, syncStatus, sum, sale, showToast, askConfirm, pushToGoogleSheets, fetchFromGoogleSheets } from '../store'
 import SalesReceiptModal from './SalesReceiptModal.vue'
 
 const props = defineProps({ t: String })
@@ -127,6 +127,9 @@ async function del(r) {
       removeBatch(r.id)
       if (showDetailsModal.value) showDetailsModal.value = false
       showToast(`បានលុបវគ្គ "${r.code}" រួចរាល់`, 'info')
+      if (state.settings.autoSync !== false) {
+        pushToGoogleSheets()
+      }
     }
   } else {
     const ok = await askConfirm({
@@ -139,6 +142,9 @@ async function del(r) {
       state[props.t] = state[props.t].filter((x) => x.id !== r.id)
       if (showDetailsModal.value) showDetailsModal.value = false
       showToast('បានលុបកំណត់ត្រាជោគជ័យ', 'info')
+      if (state.settings.autoSync !== false) {
+        pushToGoogleSheets()
+      }
     }
   }
 }

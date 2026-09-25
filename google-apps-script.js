@@ -29,7 +29,8 @@ function doGet(e) {
     materials: getSheetData(ss, 'Materials', ['id', 'name', 'cat', 'unit', 'qty', 'minQty', 'price', 'supplier', 'note']),
     stockMovements: getSheetData(ss, 'StockMovements', ['id', 'materialId', 'type', 'qty', 'unit', 'cost', 'date', 'batchId', 'reason', 'note']),
     users: getSheetData(ss, 'Users', ['id', 'name', 'username', 'role', 'pin', 'status', 'address', 'permissions']),
-    settings: getSheetData(ss, 'Settings', ['farm', 'owner', 'phone', 'address', 'rate', 'cur', 'types', 'cats'])
+    settings: getSheetData(ss, 'Settings', ['farm', 'owner', 'phone', 'address', 'rate', 'cur', 'types', 'cats']),
+    sheetsFound: ss.getSheets().map(function(s) { return s.getName(); })
   };
 
   return ContentService.createTextOutput(JSON.stringify(data))
@@ -53,16 +54,52 @@ function doPost(e) {
     if (data.users) saveSheetData(ss, 'Users', ['id', 'name', 'username', 'role', 'pin', 'status', 'address', 'permissions'], data.users);
     if (data.settings) saveSheetData(ss, 'Settings', ['farm', 'owner', 'phone', 'address', 'rate', 'cur', 'types', 'cats'], data.settings);
 
-    return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Synced successfully' }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Synced successfully',
+      sheetsFound: ss.getSheets().map(function(s) { return s.getName(); })
+    })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
+// ស្វែងរក Sheet ដោយមិនប្រកាន់អក្សរតូចធំ (Case-Insensitive) និងគាំទ្រ singular/plural (incomes / income)
+function findSheet(ss, name) {
+  var sheet = ss.getSheetByName(name);
+  if (sheet) return sheet;
+
+  var sheets = ss.getSheets();
+  var target = name.toLowerCase().trim();
+
+  // 1. ស្វែងរកតាមឈ្មោះត្រួតពិនិត្យអក្សរតូចធំ
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName().toLowerCase().trim() === target) {
+      return sheets[i];
+    }
+  }
+
+  // 2. ស្វែងរកតាមទម្រង់ឯកវចនៈ / ពហុវចនៈ (batches <-> batch, incomes <-> income)
+  for (var j = 0; j < sheets.length; j++) {
+    var cur = sheets[j].getName().toLowerCase().trim();
+    if (cur.replace(/s$/, '') === target.replace(/s$/, '')) return sheets[j];
+    if (cur.replace(/es$/, '') === target.replace(/es$/, '')) return sheets[j];
+  }
+
+  return null;
+}
+
+function getOrCreateSheet(ss, name) {
+  var sheet = findSheet(ss, name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+  }
+  return sheet;
+}
+
 function getSheetData(ss, sheetName, headers) {
-  var sheet = ss.getSheetByName(sheetName);
+  var sheet = findSheet(ss, sheetName);
   if (!sheet) return [];
   
   var lastRow = sheet.getLastRow();
@@ -79,6 +116,21 @@ function getSheetData(ss, sheetName, headers) {
     for (var c = 0; c < sheetHeaders.length; c++) {
       var key = sheetHeaders[c];
       var val = values[r][c];
+
+      // ការពារបញ្ហា Date format (ដូចជា 1899-12-30)
+      if (val instanceof Date) {
+        var yr = val.getFullYear();
+        if (yr <= 1900) {
+          val = 0;
+        } else {
+          var mo = String(val.getMonth() + 1);
+          if (mo.length < 2) mo = '0' + mo;
+          var dy = String(val.getDate());
+          if (dy.length < 2) dy = '0' + dy;
+          val = yr + '-' + mo + '-' + dy;
+        }
+      }
+
       if (val !== '' && val !== null && val !== undefined) hasData = true;
       rowObj[key] = val;
     }
@@ -88,14 +140,11 @@ function getSheetData(ss, sheetName, headers) {
 }
 
 function saveSheetData(ss, sheetName, headers, items) {
-  var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = ss.insertSheet(sheetName);
-  }
+  var sheet = getOrCreateSheet(ss, sheetName);
   
   sheet.clearContents();
 
-  // Set Header
+  // កំណត់ Header ជួរទី ១
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
 
