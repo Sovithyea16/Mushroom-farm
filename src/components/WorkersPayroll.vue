@@ -684,7 +684,7 @@ function exportPayrollCSV() {
                 <th class="text-right">ចំនួនលើកបើក</th>
                 <th class="text-right">ប្រាក់ឈ្នួលសរុប</th>
                 <th>បើកចុងក្រោយ</th>
-                <th class="text-center">សកម្មភាព</th>
+                <th class="text-center sticky-action-col">សកម្មភាព</th>
               </tr>
             </thead>
             <tbody>
@@ -716,7 +716,7 @@ function exportPayrollCSV() {
                 <td>
                   <span class="text-xs text-mu">{{ item.lastPaymentDate }}</span>
                 </td>
-                <td class="text-center">
+                <td class="text-center sticky-action-col">
                   <div class="action-btn-group">
                     <button 
                       class="row-action-btn btn-view" 
@@ -817,7 +817,7 @@ function exportPayrollCSV() {
                 <th class="text-right">កាត់ប្រាក់</th>
                 <th class="text-right">សរុបទូទាត់</th>
                 <th>វិធីទូទាត់</th>
-                <th class="text-center">សកម្មភាព</th>
+                <th class="text-center sticky-action-col">សកម្មភាព</th>
               </tr>
             </thead>
             <tbody>
@@ -859,7 +859,7 @@ function exportPayrollCSV() {
                     {{ wg.paymentMethod }}
                   </span>
                 </td>
-                <td class="text-center">
+                <td class="text-center sticky-action-col">
                   <div class="action-btn-group">
                     <button 
                       class="row-action-btn btn-view" 
@@ -1403,7 +1403,7 @@ function exportPayrollCSV() {
                   <td class="font-mono">{{ wg.workQty }} {{ wg.unit }}</td>
                   <td class="text-right font-mono font-bold text-emerald">{{ money(wg.totalPaid) }}</td>
                   <td><span class="text-xs text-mu">{{ wg.paymentMethod }}</span></td>
-                  <td class="text-center">
+                  <td class="text-center sticky-action-col">
                     <button class="btn btn-outline btn-xs" @click="openPayslip(wg)">
                       <i class="fa-solid fa-print"></i> Payslip
                     </button>

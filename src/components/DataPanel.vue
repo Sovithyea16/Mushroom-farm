@@ -252,7 +252,7 @@ const tabTitleKhmer = computed(() => {
               <i class="fa-solid fa-calculator"></i>
               សរុប
             </th>
-            <th class="action-col-header text-center">សកម្មភាព</th>
+            <th class="action-col-header text-center sticky-action-col">សកម្មភាព</th>
           </tr>
         </thead>
         <tbody>
@@ -281,7 +281,7 @@ const tabTitleKhmer = computed(() => {
             </td>
 
             <!-- Action Buttons: View Details, Edit, Delete -->
-            <td class="action-col text-center">
+            <td class="action-col text-center sticky-action-col">
               <div class="action-btn-group">
                 <!-- Receipt / Invoice Button for Incomes -->
                 <button 
