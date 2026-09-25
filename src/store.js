@@ -493,10 +493,7 @@ export async function pushToGoogleSheets() {
     syncStatus.error = err.message
     return { success: false, message: err.message }
   } finally {
-    if (!quiet) syncStatus.loading = false
-    setTimeout(() => {
-      isFetchingFromSheets = false
-    }, 600)
+    syncStatus.loading = false
   }
 }
 

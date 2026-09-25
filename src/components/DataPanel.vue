@@ -6,7 +6,7 @@ import SalesReceiptModal from './SalesReceiptModal.vue'
 const props = defineProps({ t: String })
 const fields = FIELDS[props.t]
 const today = () => new Date().toISOString().slice(0, 10)
-const blank = () => Object.fromEntries(fields.map(([k, , ty, o]) => [k, ty === 'date' ? today() : ty === 'sel' ? o[0] : ty === 'num' ? null : '']))
+const blank = () => Object.fromEntries(fields.map(([k, , ty, o]) => [k, ty === 'date' ? today() : ty === 'sel' ? o[0] : ty === 'batchg' ? '' : ty === 'num' ? null : '']))
 const draft = reactive(blank())
 
 // Reactive check if batch selection is required
@@ -36,7 +36,9 @@ function add() {
   const rec = { id: uid() }
   for (const [k, , ty] of fields) {
     let v = draft[k]
-    if (ty === 'num') v = +v || 0
+    if (ty === 'num') {
+      v = (v !== '' && v !== null && v !== undefined) ? +v : 0
+    }
     if (ty === 'batch') {
       if (!v) {
         showToast('សូមជ្រើសរើសវគ្គផលិតកម្ម!', 'error', 'ខ្វះទិន្នន័យ')
@@ -66,12 +68,34 @@ function add() {
   }
 
   if (props.t === 'incomes') {
-    if (!rec.kg || rec.kg <= 0) {
+    if (!rec.date) {
+      showToast('សូមជ្រើសរើសកាលបរិច្ឆេទលក់!', 'error', 'ខ្វះទិន្នន័យ')
+      return
+    }
+    if (rec.kg === null || rec.kg === undefined || rec.kg <= 0 || isNaN(rec.kg)) {
       showToast('សូមបញ្ចូលទម្ងន់ផ្សិតដែលបានលក់ (គ.ក) ឱ្យធំជាង 0!', 'error', 'ខ្វះទិន្នន័យ')
       return
     }
-    if (!rec.price || rec.price <= 0) {
+    if (rec.price === null || rec.price === undefined || rec.price <= 0 || isNaN(rec.price)) {
       showToast('សូមបញ្ចូលតម្លៃលក់ក្នុង ១ គ.ក ឱ្យធំជាង 0!', 'error', 'ខ្វះទិន្នន័យ')
+      return
+    }
+  }
+
+  if (props.t === 'harvests') {
+    if (!rec.batch) {
+      showToast('សូមជ្រើសរើសវគ្គផលិតកម្ម!', 'error', 'ខ្វះទិន្នន័យ')
+      return
+    }
+    if (rec.kg === null || rec.kg === undefined || rec.kg <= 0 || isNaN(rec.kg)) {
+      showToast('សូមបញ្ចូលទម្ងន់ផលប្រមូលបាន (គ.ក) ឱ្យធំជាង 0!', 'error', 'ខ្វះទិន្នន័យ')
+      return
+    }
+  }
+
+  if (props.t === 'expenses') {
+    if (!rec.amt || rec.amt <= 0 || isNaN(rec.amt)) {
+      showToast('សូមបញ្ចូលទឹកប្រាក់ចំណាយឱ្យធំជាង 0!', 'error', 'ខ្វះទិន្នន័យ')
       return
     }
   }
@@ -262,7 +286,7 @@ const tabTitleKhmer = computed(() => {
     </div>
 
     <!-- Data Entry Form -->
-    <form v-else class="form-grid" @submit.prevent="add">
+    <form v-else class="form-grid" @submit.prevent="add" novalidate>
       <div v-for="f in fields" :key="f[0]" class="form-group">
         <label>
           <span class="label-text">
@@ -274,7 +298,7 @@ const tabTitleKhmer = computed(() => {
             <option v-for="o in f[3]" :key="o">{{ o }}</option>
           </select>
 
-          <select v-else-if="f[2] === 'batch' || f[2] === 'batchg'" v-model="draft[f[0]]" class="form-control" required>
+          <select v-else-if="f[2] === 'batch' || f[2] === 'batchg'" v-model="draft[f[0]]" class="form-control" :required="f[2] === 'batch'">
             <option v-if="f[2] === 'batchg'" value="">ទូទៅ (មិនចាត់វគ្គ)</option>
             <option v-else value="" disabled>-- ជ្រើសរើសវគ្គ --</option>
             <option v-for="b in state.batches" :key="b.id" :value="b.id">{{ b.code }} ({{ b.type }})</option>
@@ -597,7 +621,7 @@ const tabTitleKhmer = computed(() => {
         </button>
       </div>
 
-      <form @submit.prevent="saveEdit">
+      <form @submit.prevent="saveEdit" novalidate>
         <div class="modal-body modal-scroll">
           <div class="form-vertical gap-3">
             <div v-for="f in fields" :key="'edit-' + f[0]" class="form-group">
@@ -611,7 +635,7 @@ const tabTitleKhmer = computed(() => {
               </select>
 
               <!-- Batch Selector Dropdown -->
-              <select v-else-if="f[2] === 'batch' || f[2] === 'batchg'" v-model="editDraft[f[0]]" class="form-control" required>
+              <select v-else-if="f[2] === 'batch' || f[2] === 'batchg'" v-model="editDraft[f[0]]" class="form-control" :required="f[2] === 'batch'">
                 <option v-if="f[2] === 'batchg'" value="">ទូទៅ (មិនចាត់វគ្គ)</option>
                 <option v-for="b in state.batches" :key="b.id" :value="b.id">{{ b.code }} ({{ b.type }})</option>
               </select>
