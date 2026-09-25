@@ -284,7 +284,130 @@ async function handleDeleteWorker(worker) {
 // =========================================================================
 // Actions: Wage CRUD
 // =========================================================================
-function openAddWageModal(presetWorker = null) {
+
+// ==== Attendance Logic ====
+const attendanceDate = ref(new Date().toISOString().slice(0, 10))
+const activeWorkersList = computed(() => state.workers.filter(w => w.status === 'active'))
+
+const dailyAttendances = ref({})
+
+watch([attendanceDate, activeWorkersList], ([newDate, workers]) => {
+  dailyAttendances.value = {}
+  workers.forEach(w => {
+    const existing = (state.attendances || []).find(a => a.workerId === w.id && a.date === newDate)
+    if (existing) {
+      dailyAttendances.value[w.id] = { ...existing }
+    } else {
+      dailyAttendances.value[w.id] = { workerId: w.id, date: newDate, status: '', note: '', wageId: null }
+    }
+  })
+}, { immediate: true })
+
+function saveAttendance(workerId) {
+  const att = dailyAttendances.value[workerId]
+  if (!att) return
+  if (!att.status) return 
+  
+  const existing = (state.attendances || []).find(a => a.id === att.id || (a.workerId === workerId && a.date === attendanceDate.value))
+  if (existing) {
+    if (existing.wageId) {
+      showToast('?????????????????????????????????????? ?????????????????!', 'warning')
+      dailyAttendances.value[workerId] = { ...existing }
+      return
+    }
+    updateAttendance(existing.id, { status: att.status, note: att.note })
+    att.id = existing.id
+  } else {
+    addAttendance({ ...att })
+    const created = state.attendances[0]
+    att.id = created.id
+  }
+}
+
+// Override openAddWageModal
+function openAddWageModalAuto(presetWorker = null) {
+  isEditingWage.value = false
+  wageForm.value = {
+    id: null,
+    workerId: presetWorker ? presetWorker.id : '',
+    date: new Date().toISOString().slice(0, 10),
+    batchId: '',
+    workType: '?????????????????? (????????)',
+    workQty: 1,
+    unit: '????',
+    rate: 0,
+    bonus: 0,
+    deduction: 0,
+    paymentMethod: '?????????? (Cash)',
+    syncToExpense: true,
+    note: '',
+  }
+  showWageModal.value = true
+}
+
+watch(() => wageForm.value.workerId, (wid) => {
+  if (wid && !isEditingWage.value) {
+    const worker = state.workers.find(w => w.id === wid)
+    if (worker) {
+      wageForm.value.rate = worker.baseRate || 0
+      
+      const unpaid = (state.attendances || []).filter(a => a.workerId === wid && !a.wageId)
+      let count = 0
+      unpaid.forEach(a => {
+        if (a.status === '???????') count += 1
+        if (a.status === '?????????') count += 0.5
+      })
+      
+      wageForm.value.workQty = count
+      if (count > 0) {
+        wageForm.value.note = `???????????????????? ${count} ????`
+      } else {
+        wageForm.value.note = ''
+      }
+    }
+  }
+})
+
+async function handleSaveWageAuto() {
+  if (!wageForm.value.workerId) {
+    showToast('?????????????????!', 'error')
+    return
+  }
+  if (!wageForm.value.rate || wageForm.value.rate <= 0) {
+    showToast('???????????????????? (????????????????)!', 'error')
+    return
+  }
+
+  const baseAmt = (+wageForm.value.workQty) * (+wageForm.value.rate)
+  const bonus = +wageForm.value.bonus || 0
+  const deduction = +wageForm.value.deduction || 0
+  const totalPaid = baseAmt + bonus - deduction
+
+  const payload = {
+    ...wageForm.value,
+    workerName: bname(wageForm.value.workerId, 'workers'),
+    baseAmt,
+    totalPaid
+  }
+
+  if (isEditingWage.value) {
+    updateWage(payload.id, payload)
+    showToast('????????????????????????', 'success')
+  } else {
+    addWage(payload)
+    const newWage = state.wages[0]
+    
+    const unpaid = (state.attendances || []).filter(a => a.workerId === payload.workerId && !a.wageId)
+    unpaid.forEach(a => {
+      updateAttendance(a.id, { wageId: newWage.id })
+    })
+    
+    showToast(`????????????????????? ???????????????? ${unpaid.length} ?????`, 'success')
+  }
+  showWageModal.value = false
+}
+
+function openAddWageModalOriginalIgnored(presetWorker = null) {
   isEditingWage.value = false
   const defaultWorker = presetWorker || state.workers[0]
   const defaultWorkerId = defaultWorker ? defaultWorker.id : ''
@@ -521,31 +644,31 @@ function exportPayrollCSV() {
                 </td>
                 <td>{{ w.role }}</td>
                 <td>
-                  <div class="status-radios">
+                  <div class="status-radios" v-if="dailyAttendances[w.id]">
                     <label class="radio-label">
-                      <input type="radio" :name="'status_'+w.id" value="???????" v-model="getAttendance(w.id).status" @change="saveAttendance(w.id)" />
+                      <input type="radio" :name="'status_'+w.id" value="???????" v-model="dailyAttendances[w.id].status" @change="saveAttendance(w.id)" />
                       <span class="badge success">??????? (1)</span>
                     </label>
                     <label class="radio-label">
-                      <input type="radio" :name="'status_'+w.id" value="?????????" v-model="getAttendance(w.id).status" @change="saveAttendance(w.id)" />
+                      <input type="radio" :name="'status_'+w.id" value="?????????" v-model="dailyAttendances[w.id].status" @change="saveAttendance(w.id)" />
                       <span class="badge warning">????????? (0.5)</span>
                     </label>
                     <label class="radio-label">
-                      <input type="radio" :name="'status_'+w.id" value="????????" v-model="getAttendance(w.id).status" @change="saveAttendance(w.id)" />
+                      <input type="radio" :name="'status_'+w.id" value="????????" v-model="dailyAttendances[w.id].status" @change="saveAttendance(w.id)" />
                       <span class="badge danger">???????? (0)</span>
                     </label>
                     <label class="radio-label">
-                      <input type="radio" :name="'status_'+w.id" value="??????" v-model="getAttendance(w.id).status" @change="saveAttendance(w.id)" />
+                      <input type="radio" :name="'status_'+w.id" value="??????" v-model="dailyAttendances[w.id].status" @change="saveAttendance(w.id)" />
                       <span class="badge bg-secondary">?????? (0)</span>
                     </label>
                   </div>
                 </td>
                 <td>
-                  <input type="text" v-model="getAttendance(w.id).note" @blur="saveAttendance(w.id)" class="input" placeholder="???????..." style="width: 120px;" />
+                  <input type="text" v-if="dailyAttendances[w.id]" v-model="dailyAttendances[w.id].note" @blur="saveAttendance(w.id)" class="input" placeholder="???????..." style="width: 120px;" />
                 </td>
                 <td>
-                  <span v-if="getAttendance(w.id).wageId" class="badge bg-secondary">????????????</span>
-                  <span v-else-if="getAttendance(w.id).id" class="text-emerald" style="font-size: 0.85rem;"><i class="fa-solid fa-check-circle"></i> ????????</span>
+                  <span v-if="dailyAttendances[w.id] && dailyAttendances[w.id].wageId" class="badge bg-secondary">????????????</span>
+                  <span v-else-if="dailyAttendances[w.id] && dailyAttendances[w.id].id" class="text-emerald" style="font-size: 0.85rem;"><i class="fa-solid fa-check-circle"></i> ????????</span>
                 </td>
               </tr>
               <tr v-if="!activeWorkersList.length">
@@ -805,7 +928,7 @@ function exportPayrollCSV() {
                     <button 
                       class="row-action-btn btn-edit" 
                       title="កត់ត្រាបើកប្រាក់ឈ្នួល"
-                      @click="openAddWageModal(item.worker)"
+                      @click="openAddWageModalAuto(item.worker)"
                     >
                       <i class="fa-solid fa-plus"></i>
                     </button>
@@ -875,7 +998,7 @@ function exportPayrollCSV() {
             </h3>
             <span class="subtitle">បង្ហាញ {{ filteredWages.length }} កំណត់ត្រា | សរុបទឹកប្រាក់៖ <b>{{ money(filteredWages.reduce((s, w) => s + (+w.totalPaid || 0), 0)) }}</b></span>
           </div>
-          <button class="btn btn-primary btn-sm" @click="openAddWageModal()">
+          <button class="btn btn-primary btn-sm" @click="openAddWageModalAuto()">
             <i class="fa-solid fa-plus"></i> កត់ត្រាប្រាក់ឈ្នួលថ្មី
           </button>
         </div>
@@ -1087,7 +1210,7 @@ function exportPayrollCSV() {
           </div>
 
           <div class="worker-card-footer pt-3 border-top">
-            <button class="btn btn-primary btn-sm" @click="openAddWageModal(w)">
+            <button class="btn btn-primary btn-sm" @click="openAddWageModalAuto(w)">
               <i class="fa-solid fa-hand-holding-dollar"></i> បើកប្រាក់ឈ្នួល
             </button>
             <div class="action-btn-group">
@@ -1496,7 +1619,7 @@ function exportPayrollCSV() {
 
         <div class="modal-footer">
           <button class="btn btn-outline" @click="showHistoryModal = false">បិទ</button>
-          <button class="btn btn-primary" @click="openAddWageModal(selectedWorkerForHistory); showHistoryModal = false">
+          <button class="btn btn-primary" @click="openAddWageModalAuto(selectedWorkerForHistory); showHistoryModal = false">
             <i class="fa-solid fa-plus"></i> កត់ត្រាបើកប្រាក់ថ្មី
           </button>
         </div>
