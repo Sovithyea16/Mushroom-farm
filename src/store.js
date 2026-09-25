@@ -224,36 +224,44 @@ export function canAccess(featureKey) {
 
 export function login(identifier, pin = '') {
   const pinStr = String(pin !== undefined && pin !== null ? pin : '').trim()
+  const idStr = String(identifier !== undefined && identifier !== null ? identifier : '').trim()
+  const lower = idStr.toLowerCase()
   let matchedUser = null
 
-  // 1. Match by specific userId or username
-  if (typeof identifier === 'number') {
-    matchedUser = state.users.find(u => u.id === identifier)
-  } else if (identifier && typeof identifier === 'string') {
-    const lower = identifier.toLowerCase()
+  // 1. Match by username (case-insensitive)
+  if (lower) {
+    matchedUser = (state.users || []).find(u => u.username && String(u.username).trim().toLowerCase() === lower)
+  }
+
+  // 2. Match by user ID (type-safe string comparison)
+  if (!matchedUser && idStr) {
+    matchedUser = (state.users || []).find(u => String(u.id).trim() === idStr)
+  }
+
+  // 3. Fallback match for role keywords
+  if (!matchedUser) {
     if (lower === 'admin') {
-      matchedUser = state.users.find(u => u.role === 'admin' && (u.pin === pinStr || (u.pin === '' && pinStr === '')))
-      if (!matchedUser) matchedUser = state.users.find(u => u.role === 'admin')
+      matchedUser = (state.users || []).find(u => u.role === 'admin' && String(u.pin || '').trim() === pinStr)
+      if (!matchedUser) matchedUser = (state.users || []).find(u => u.role === 'admin')
     } else if (lower === 'user' || lower === 'staff') {
-      matchedUser = state.users.find(u => u.role === 'user' && (u.pin === pinStr || (u.pin === '' && pinStr === '')))
-      if (!matchedUser) matchedUser = state.users.find(u => u.role === 'user')
-    } else {
-      matchedUser = state.users.find(u => u.username && u.username.toLowerCase() === lower)
+      matchedUser = (state.users || []).find(u => u.role === 'user' && String(u.pin || '').trim() === pinStr)
+      if (!matchedUser) matchedUser = (state.users || []).find(u => u.role === 'user')
     }
   }
 
   if (!matchedUser) {
-    return { success: false, message: 'រកមិនឃើញគណនីនេះនៅក្នុងប្រព័ន្ធទេ!' }
+    return { success: false, message: 'រកមិនឃើញឈ្មោះគណនី «' + idStr + '» នៅក្នុងប្រព័ន្ធទេ!' }
   }
 
   if (matchedUser.status === 'inactive') {
     return { success: false, message: 'គណនី «' + matchedUser.name + '» ត្រូវបានផ្អាកដំណើរការដោយ Admin!' }
   }
 
-  // Validate PIN if configured
-  if (matchedUser.pin && matchedUser.pin !== pinStr) {
+  // Validate PIN (string normalized)
+  const expectedPin = String(matchedUser.pin !== undefined && matchedUser.pin !== null ? matchedUser.pin : '').trim()
+  if (expectedPin && expectedPin !== pinStr) {
     // Fallback check against settings.adminPin for admin role
-    if (matchedUser.role === 'admin' && state.settings.adminPin && pinStr === state.settings.adminPin) {
+    if (matchedUser.role === 'admin' && state.settings && state.settings.adminPin && pinStr === String(state.settings.adminPin).trim()) {
       // Allow fallback
     } else {
       return { success: false, message: 'លេខកូដសម្ងាត់ (PIN) មិនត្រឹមត្រូវទេ!' }
@@ -349,12 +357,13 @@ export function addUser(userData) {
 }
 
 export function updateUser(id, updated) {
-  const idx = state.users.findIndex(u => u.id === id)
+  const idStr = String(id).trim()
+  const idx = (state.users || []).findIndex(u => String(u.id).trim() === idStr)
   if (idx === -1) return { success: false, message: 'រកមិនឃើញគណនីនេះទេ!' }
 
   if (updated.username) {
-    const newUsername = updated.username.trim().toLowerCase()
-    const duplicate = state.users.some(u => u.id !== id && u.username && u.username.toLowerCase() === newUsername)
+    const newUsername = String(updated.username).trim().toLowerCase()
+    const duplicate = state.users.some(u => String(u.id).trim() !== idStr && u.username && String(u.username).trim().toLowerCase() === newUsername)
     if (duplicate) {
       return { success: false, message: 'ឈ្មោះចូលប្រើ (Username) «' + newUsername + '» នេះមានរួចហើយ!' }
     }
@@ -363,7 +372,7 @@ export function updateUser(id, updated) {
 
   // Prevent disabling or deranking the last active admin
   if (state.users[idx].role === 'admin' && (updated.role === 'user' || updated.status === 'inactive')) {
-    const activeAdmins = state.users.filter(u => u.role === 'admin' && u.status === 'active' && u.id !== id)
+    const activeAdmins = state.users.filter(u => u.role === 'admin' && u.status === 'active' && String(u.id).trim() !== idStr)
     if (activeAdmins.length === 0) {
       return { success: false, message: 'មិនអាចប្តូរ ឬផ្អាកគណនី Admin ចុងក្រោយគេបានទេ!' }
     }
@@ -377,13 +386,14 @@ export function updateUser(id, updated) {
   state.users[idx] = {
     ...state.users[idx],
     ...updated,
-    id,
+    id: state.users[idx].id, // preserve ID
+    name: updated.name ? String(updated.name).trim() : state.users[idx].name,
     pin: updated.pin !== undefined ? String(updated.pin).trim() : state.users[idx].pin,
     permissions: perms,
   }
 
   // Realtime sync if current logged-in user is updated
-  if (authState.userId === id) {
+  if (String(authState.userId).trim() === idStr) {
     authState.name = state.users[idx].name
     authState.username = state.users[idx].username
     authState.role = state.users[idx].role
@@ -394,7 +404,8 @@ export function updateUser(id, updated) {
 }
 
 export function deleteUser(id) {
-  const user = state.users.find(u => u.id === id)
+  const idStr = String(id).trim()
+  const user = (state.users || []).find(u => String(u.id).trim() === idStr)
   if (!user) return { success: false, message: 'រកមិនឃើញគណនីនេះទេ!' }
 
   if (user.role === 'admin') {
@@ -404,11 +415,11 @@ export function deleteUser(id) {
     }
   }
 
-  if (authState.userId === id) {
+  if (String(authState.userId).trim() === idStr) {
     return { success: false, message: 'មិនអាចលុបគណនីដែលកំពុង Login ប្រើប្រាស់បច្ចុប្បន្នបានទេ!' }
   }
 
-  state.users = state.users.filter(u => u.id !== id)
+  state.users = state.users.filter(u => String(u.id).trim() !== idStr)
   return { success: true }
 }
 

@@ -1,31 +1,28 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { state, authState, login, showToast } from '../store'
+import { ref } from 'vue'
+import { state, login, showToast } from '../store'
 
-const activeUsers = computed(() => (state.users || []).filter(u => u.status === 'active'))
-const selectedUserId = ref(activeUsers.value.length ? activeUsers.value[0].id : 1)
-const selectedUser = computed(() => activeUsers.value.find(u => u.id === selectedUserId.value) || activeUsers.value[0])
-
+const username = ref('')
 const pin = ref('')
 const showPassword = ref(false)
 const errorMsg = ref('')
 const loading = ref(false)
 
-function selectUser(user) {
-  selectedUserId.value = user.id
-  pin.value = ''
-  errorMsg.value = ''
-}
-
 function handleLogin() {
   errorMsg.value = ''
+  
+  if (!username.value.trim()) {
+    errorMsg.value = 'សូមបញ្ចូលឈ្មោះចូលប្រើ (Username)!'
+    return
+  }
+
   loading.value = true
 
   setTimeout(() => {
-    const res = login(selectedUserId.value, pin.value)
+    const res = login(username.value.trim(), pin.value)
     loading.value = false
     if (res.success) {
-      showToast(`ស្វាគមន៍ការចូលប្រើប្រាស់ជា ${res.name}!`, 'success', 'ចូលប្រព័ន្ធជោគជ័យ')
+      showToast('ស្វាគមន៍ការចូលប្រើប្រាស់ ' + res.name + '!', 'success', 'ចូលប្រព័ន្ធជោគជ័យ')
       pin.value = ''
     } else {
       errorMsg.value = res.message
@@ -49,35 +46,7 @@ function handleLogin() {
         <p class="login-subtitle">ប្រព័ន្ធគ្រប់គ្រង និងតាមដានផលិតកម្មកសិដ្ឋាន</p>
       </div>
 
-      <!-- User Account Selector Grid -->
-      <div class="login-user-select-section mt-3">
-        <label class="label-text mb-2 text-xs font-bold text-mu text-center d-block">
-          <i class="fa-solid fa-users"></i> ជ្រើសរើសគណនីសម្រាប់ចូលប្រើប្រាស់
-        </label>
-        <div class="login-users-grid">
-          <button 
-            v-for="u in activeUsers" 
-            :key="u.id" 
-            type="button" 
-            class="login-user-card" 
-            :class="{ active: selectedUserId === u.id }"
-            @click="selectUser(u)"
-          >
-            <div class="user-avatar-circle" :class="u.role === 'admin' ? 'bg-emerald-light text-emerald' : 'bg-blue-light text-blue'">
-              <i :class="u.role === 'admin' ? 'fa-solid fa-crown' : 'fa-solid fa-user'"></i>
-            </div>
-            <div class="user-meta">
-              <b class="user-name">{{ u.name }}</b>
-              <span class="user-role-text" :class="u.role === 'admin' ? 'text-emerald' : 'text-blue'">
-                {{ u.role === 'admin' ? '👑 Admin' : '👤 Staff (@' + u.username + ')' }}
-              </span>
-            </div>
-            <i v-if="selectedUserId === u.id" class="fa-solid fa-circle-check user-check-icon text-emerald"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- Login Form -->
+      <!-- Standard Login Form -->
       <form class="login-form mt-4" @submit.prevent="handleLogin">
         <!-- Error Alert -->
         <div v-if="errorMsg" class="alert-box alert-error mb-3">
@@ -85,10 +54,28 @@ function handleLogin() {
           <span>{{ errorMsg }}</span>
         </div>
 
-        <div class="form-group" v-if="selectedUser">
+        <!-- Username Input -->
+        <div class="form-group mb-3">
+          <label class="label-text">
+            <i class="fa-solid fa-user"></i>
+            <span>ឈ្មោះចូលប្រើ (Username)</span>
+          </label>
+          <input 
+            type="text"
+            v-model="username"
+            class="form-control"
+            placeholder="បញ្ចូលឈ្មោះសម្គាល់ចូលប្រើ (ឧ. admin, staff...)"
+            autofocus
+            autocomplete="username"
+            required
+          />
+        </div>
+
+        <!-- PIN / Password Input -->
+        <div class="form-group mb-3">
           <label class="label-text">
             <i class="fa-solid fa-key"></i>
-            <span>លេខកូដសម្ងាត់ PIN សម្រាប់ {{ selectedUser.name }}</span>
+            <span>លេខកូដសម្ងាត់ (PIN / Password)</span>
           </label>
 
           <div class="password-input-wrap">
@@ -96,9 +83,9 @@ function handleLogin() {
               :type="showPassword ? 'text' : 'password'"
               v-model="pin"
               maxlength="16"
-              class="form-control text-center font-bold text-xl tracking-widest"
-              :placeholder="selectedUser.pin ? 'បញ្ចូលលេខសម្ងាត់ PIN...' : 'គណនីនេះគ្មាន PIN ទេ (ចុចចូល)'"
-              autofocus
+              class="form-control"
+              placeholder="បញ្ចូលលេខសម្ងាត់ PIN..."
+              autocomplete="current-password"
             />
             <button 
               type="button" 
@@ -120,7 +107,7 @@ function handleLogin() {
       <!-- Credentials Hint Box -->
       <div class="login-hint-box mt-4">
         <i class="fa-solid fa-circle-info text-emerald"></i>
-        <span>Admin លំនាំដើម៖ <b>1234</b> | បុគ្គលិក Staff៖ <b>0000</b> (ឬចុចចូលផ្ទាល់)</span>
+        <span>គណនីគំរូ៖ <b>admin</b> (PIN: 1234) ឬ <b>staff</b> (PIN: 0000)</span>
       </div>
     </div>
   </div>
