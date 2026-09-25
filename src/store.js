@@ -494,6 +494,7 @@ export async function pushToGoogleSheets() {
     return { success: false, message: err.message }
   } finally {
     syncStatus.loading = false
+    isFetchingFromSheets = false
   }
 }
 
@@ -707,8 +708,10 @@ export async function fetchFromGoogleSheets(quiet = false) {
     return { success: false, message: err.message }
   } finally {
     syncStatus.loading = false
+    isFetchingFromSheets = false
   }
 }
+
 
 export const FIELDS = {
   get batches() {
