@@ -102,16 +102,32 @@ const load = () => {
 export const state = reactive(load())
 watch(state, () => localStorage.setItem(KEY, JSON.stringify(state)), { deep: true })
 
-// Debounced Auto-Sync Watcher
+// Realtime Database Auto-Sync Watcher to Google Sheets
 let autoSyncTimer = null
 watch(
-  () => [state.batches, state.harvests, state.incomes, state.expenses, state.workers, state.wages, state.materials, state.stockMovements, state.users],
+  () => [
+    state.batches,
+    state.harvests,
+    state.incomes,
+    state.expenses,
+    state.workers,
+    state.wages,
+    state.materials,
+    state.stockMovements,
+    state.users,
+    state.settings
+  ],
   () => {
-    if (state.settings.autoSync !== false && state.settings.googleScriptUrl) {
+    if (state.settings.autoSync !== false) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        syncStatus.hasPendingChanges = true
+        return
+      }
+      syncStatus.hasPendingChanges = true
       if (autoSyncTimer) clearTimeout(autoSyncTimer)
       autoSyncTimer = setTimeout(() => {
         pushToGoogleSheets()
-      }, 1500)
+      }, 1000)
     }
   },
   { deep: true }
@@ -350,11 +366,17 @@ export function deleteUser(id) {
 
 
 
-// Google Sheets Sync Service
+// Google Sheets Database Sync Service
+export const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7WG2NvlzDF95GphvRGYCdCtB5a8CY8sYu_F88tHoFAH1uF-YBAGVTr8plb_-PSCOC/exec'
+
 export const syncStatus = reactive({
   loading: false,
-  lastSynced: localStorage.getItem('mushroom-last-synced') || null,
+  saving: false,
+  lastSynced: (typeof localStorage !== 'undefined' ? localStorage.getItem('mushroom-last-synced') : null) || null,
   error: null,
+  isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+  hasPendingChanges: false,
+  autoSyncing: true,
 })
 
 const cleanDate = (d) => {
@@ -387,6 +409,16 @@ export async function pushToGoogleSheets() {
         address: u.address || '',
         permissions: typeof u.permissions === 'object' ? JSON.stringify(u.permissions) : (u.permissions || '')
       })),
+      settings: [{
+        farm: state.settings.farm || '',
+        owner: state.settings.owner || '',
+        phone: state.settings.phone || '',
+        address: state.settings.address || '',
+        rate: state.settings.rate || 4100,
+        cur: state.cur || '៛',
+        types: JSON.stringify(state.settings.types || []),
+        cats: JSON.stringify(state.settings.cats || [])
+      }],
     }
     const res = await fetch(url, {
       method: 'POST',
@@ -397,6 +429,8 @@ export async function pushToGoogleSheets() {
     if (json.status === 'success') {
       const nowStr = new Date().toLocaleTimeString('km-KH')
       syncStatus.lastSynced = nowStr
+      syncStatus.hasPendingChanges = false
+      syncStatus.error = null
       localStorage.setItem('mushroom-last-synced', nowStr)
       return { success: true }
     } else {
@@ -407,6 +441,35 @@ export async function pushToGoogleSheets() {
     return { success: false, message: err.message }
   } finally {
     syncStatus.loading = false
+  }
+}
+
+let isInitializingSync = false
+export async function initGoogleSheetsSync() {
+  if (isInitializingSync) return
+  isInitializingSync = true
+
+  // Setup online/offline listeners
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+      syncStatus.isOnline = true
+      if (syncStatus.hasPendingChanges) {
+        pushToGoogleSheets()
+      }
+    })
+    window.addEventListener('offline', () => {
+      syncStatus.isOnline = false
+    })
+  }
+
+  // Auto fetch from Google Sheets on app startup
+  const url = state.settings.googleScriptUrl || DEFAULT_SCRIPT_URL
+  if (url && (typeof navigator === 'undefined' || navigator.onLine)) {
+    try {
+      await fetchFromGoogleSheets()
+    } catch (e) {
+      console.warn('Initial Google Sheets fetch failed, using local storage cache:', e)
+    }
   }
 }
 
@@ -522,6 +585,27 @@ export async function fetchFromGoogleSheets() {
             permissions: perms
           }
         })
+      }
+      if (Array.isArray(data.settings) && data.settings.length) {
+        const s = data.settings[0]
+        if (s.farm) state.settings.farm = s.farm
+        if (s.owner) state.settings.owner = s.owner
+        if (s.phone) state.settings.phone = s.phone
+        if (s.address) state.settings.address = s.address
+        if (s.rate) state.settings.rate = +s.rate || 4100
+        if (s.cur) state.cur = s.cur
+        if (s.types) {
+          try {
+            const types = typeof s.types === 'string' ? JSON.parse(s.types) : s.types
+            if (Array.isArray(types) && types.length) state.settings.types = types
+          } catch {}
+        }
+        if (s.cats) {
+          try {
+            const cats = typeof s.cats === 'string' ? JSON.parse(s.cats) : s.cats
+            if (Array.isArray(cats) && cats.length) state.settings.cats = cats
+          } catch {}
+        }
       }
       const nowStr = new Date().toLocaleTimeString('km-KH')
       syncStatus.lastSynced = nowStr

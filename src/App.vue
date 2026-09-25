@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { state, currentUser, isAdmin, isUser, switchRole, canAccess, syncStatus, pushToGoogleSheets, toasts, confirmDialog, removeToast, handleConfirmResponse, showToast, authState, logout, askConfirm } from './store'
+import { ref, computed, watch, onMounted } from 'vue'
+import { state, currentUser, isAdmin, isUser, switchRole, canAccess, syncStatus, pushToGoogleSheets, initGoogleSheetsSync, toasts, confirmDialog, removeToast, handleConfirmResponse, showToast, authState, logout, askConfirm } from './store'
 import Dashboard from './components/Dashboard.vue'
 import DataPanel from './components/DataPanel.vue'
 import Reports from './components/Reports.vue'
@@ -9,6 +9,11 @@ import Settings from './components/Settings.vue'
 import WorkersPayroll from './components/WorkersPayroll.vue'
 import Inventory from './components/Inventory.vue'
 import Login from './components/Login.vue'
+
+// Initialize Google Sheets Database Sync on Startup
+onMounted(() => {
+  initGoogleSheetsSync()
+})
 
 // Operational tabs
 const opTabs = [
