@@ -165,6 +165,18 @@ function stageClass(s) {
   }
 }
 
+
+async function handleRefreshSheets() {
+  if (syncStatus.loading) return
+  showToast('កំពុងទាញទិន្នន័យពី Google Sheets...', 'info')
+  const res = await fetchFromGoogleSheets(false)
+  if (res.success) {
+    showToast('ទិន្នន័យត្រូវបានធ្វើបច្ចុប្បន្នភាពរួចរាល់!', 'success', 'Google Sheets')
+  } else {
+    showToast('បញ្ហាទាញទិន្នន័យ៖ ' + res.message, 'error')
+  }
+}
+
 const tabTitleKhmer = computed(() => {
   const map = {
     batches: 'វគ្គផលិតកម្មផ្សិត',
@@ -253,7 +265,19 @@ const tabTitleKhmer = computed(() => {
         <i class="fa-solid fa-list-ul"></i>
         <span>បញ្ជីទិន្នន័យ ({{ rows.length }})</span>
       </h3>
-      <span class="text-hint"><i class="fa-solid fa-arrows-left-right"></i> អូសដើម្បីមើលបន្ថែម</span>
+      <div class="d-flex align-center gap-2">
+        <button 
+          type="button" 
+          class="btn btn-outline btn-xs gap-1"
+          title="ទាញទិន្នន័យថ្មីពី Google Sheets (Refresh Latest Data)"
+          :disabled="syncStatus.loading"
+          @click="handleRefreshSheets"
+        >
+          <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': syncStatus.loading }"></i>
+          <span>ទាញទិន្នន័យថ្មី</span>
+        </button>
+        <span class="text-hint"><i class="fa-solid fa-arrows-left-right"></i> អូសដើម្បីមើលបន្ថែម</span>
+      </div>
     </div>
 
     <div class="scroll-table-wrapper">

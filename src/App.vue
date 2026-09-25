@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { state, currentUser, isAdmin, isUser, switchRole, canAccess, syncStatus, pushToGoogleSheets, initGoogleSheetsSync, toasts, confirmDialog, removeToast, handleConfirmResponse, showToast, authState, logout, askConfirm } from './store'
+import { state, currentUser, isAdmin, isUser, switchRole, canAccess, syncStatus, pushToGoogleSheets, fetchFromGoogleSheets, initGoogleSheetsSync, toasts, confirmDialog, removeToast, handleConfirmResponse, showToast, authState, logout, askConfirm } from './store'
 import Dashboard from './components/Dashboard.vue'
 import DataPanel from './components/DataPanel.vue'
 import Reports from './components/Reports.vue'
@@ -122,15 +122,23 @@ function selectTab(t, adminOnly = false) {
   sideOpen.value = false
 }
 
-// Quick Google Sheets Sync Action
+// Smart Google Sheets Sync Action (Auto Push local changes & Pull latest remote data)
 async function handleQuickSync() {
   if (syncStatus.loading) return
-  showToast('កំពុងបញ្ជូនទិន្នន័យទៅ Google Sheets...', 'info')
-  const res = await pushToGoogleSheets()
+
+  // 1. If there are unsaved local changes, push first
+  if (syncStatus.hasPendingChanges) {
+    showToast('កំពុងបញ្ជូនទិន្នន័យថ្មីទៅ Google Sheets...', 'info')
+    await pushToGoogleSheets()
+  }
+
+  // 2. Pull latest data from Google Sheets to ensure all devices are synchronized
+  showToast('កំពុងទាញទិន្នន័យចុងក្រោយពី Google Sheets...', 'info')
+  const res = await fetchFromGoogleSheets(false)
   if (res.success) {
-    showToast('ទិន្នន័យត្រូវបានបញ្ជូនទៅ Google Sheets ដោយជោគជ័យ!', 'success', 'Google Sheets')
+    showToast('ទិន្នន័យត្រូវបានធ្វើបច្ចុប្បន្នភាពទាន់សម័យជោគជ័យ!', 'success', 'Sync ជោគជ័យ')
   } else {
-    showToast('បរាជ័យក្នុងការ Sync៖ ' + res.message, 'error', 'កំហុស Sync')
+    showToast('បរាជ័យក្នុងការទាញទិន្នន័យ៖ ' + res.message, 'error', 'កំហុស Sync')
   }
 }
 </script>
@@ -161,11 +169,11 @@ async function handleQuickSync() {
         <button 
           class="sheets-sync-btn" 
           :class="{ syncing: syncStatus.loading }"
-          title="ចុចដើម្បី Sync ទៅ Google Sheets"
+          title="ចុចដើម្បីទាញទិន្នន័យថ្មី និងធ្វើសមកាលកម្ម (Sync & Pull Data)"
           @click="handleQuickSync"
         >
-          <i class="fa-solid fa-cloud-arrow-up" :class="{ 'fa-spin': syncStatus.loading }"></i>
-          <span class="sync-text-btn">{{ syncStatus.loading ? 'Syncing...' : 'Sync Sheets' }}</span>
+          <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': syncStatus.loading }"></i>
+          <span class="sync-text-btn">{{ syncStatus.loading ? 'កំពុង Sync...' : 'Sync ទិន្នន័យ' }}</span>
         </button>
 
         <!-- Role Indicator Button -->

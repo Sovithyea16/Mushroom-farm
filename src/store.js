@@ -102,8 +102,10 @@ const load = () => {
 export const state = reactive(load())
 watch(state, () => localStorage.setItem(KEY, JSON.stringify(state)), { deep: true })
 
-// Realtime Database Auto-Sync Watcher to Google Sheets
+// Realtime Database Auto-Sync Watcher & Mutex Lock
+export let isFetchingFromSheets = false
 let autoSyncTimer = null
+
 watch(
   () => [
     state.batches,
@@ -118,6 +120,9 @@ watch(
     state.settings
   ],
   () => {
+    // If state change was caused by fetching from Google Sheets, do NOT push it back
+    if (isFetchingFromSheets) return
+
     if (state.settings.autoSync !== false) {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         syncStatus.hasPendingChanges = true
@@ -127,7 +132,7 @@ watch(
       if (autoSyncTimer) clearTimeout(autoSyncTimer)
       autoSyncTimer = setTimeout(() => {
         pushToGoogleSheets()
-      }, 1000)
+      }, 800)
     }
   },
   { deep: true }
@@ -499,25 +504,55 @@ export async function pushToGoogleSheets() {
     syncStatus.error = err.message
     return { success: false, message: err.message }
   } finally {
-    syncStatus.loading = false
+    if (!quiet) syncStatus.loading = false
+    setTimeout(() => {
+      isFetchingFromSheets = false
+    }, 600)
   }
 }
 
 let isInitializingSync = false
+let realtimePollTimer = null
+
+export function startRealtimePolling() {
+  if (realtimePollTimer) clearInterval(realtimePollTimer)
+  // Poll every 15 seconds quietly to keep multi-user data synced in realtime
+  realtimePollTimer = setInterval(() => {
+    if (typeof document !== 'undefined' && document.hidden) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return
+    if (syncStatus.loading || syncStatus.hasPendingChanges) return
+    fetchFromGoogleSheets(true)
+  }, 15000)
+}
+
 export async function initGoogleSheetsSync() {
   if (isInitializingSync) return
   isInitializingSync = true
 
-  // Setup online/offline listeners
+  // Setup online/offline and visibility/focus listeners
   if (typeof window !== 'undefined') {
     window.addEventListener('online', () => {
       syncStatus.isOnline = true
       if (syncStatus.hasPendingChanges) {
         pushToGoogleSheets()
+      } else {
+        fetchFromGoogleSheets(true)
       }
     })
     window.addEventListener('offline', () => {
       syncStatus.isOnline = false
+    })
+
+    // Auto-fetch when user switches back to app or unlocks screen
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && !syncStatus.loading && !syncStatus.hasPendingChanges) {
+        fetchFromGoogleSheets(true)
+      }
+    })
+    window.addEventListener('focus', () => {
+      if (!syncStatus.loading && !syncStatus.hasPendingChanges) {
+        fetchFromGoogleSheets(true)
+      }
     })
   }
 
@@ -525,17 +560,20 @@ export async function initGoogleSheetsSync() {
   const url = state.settings.googleScriptUrl || DEFAULT_SCRIPT_URL
   if (url && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
-      await fetchFromGoogleSheets()
+      await fetchFromGoogleSheets(true)
     } catch (e) {
       console.warn('Initial Google Sheets fetch failed, using local storage cache:', e)
     }
   }
+
+  startRealtimePolling()
 }
 
-export async function fetchFromGoogleSheets() {
-  const url = state.settings.googleScriptUrl || 'https://script.google.com/macros/s/AKfycbw7WG2NvlzDF95GphvRGYCdCtB5a8CY8sYu_F88tHoFAH1uF-YBAGVTr8plb_-PSCOC/exec'
-  syncStatus.loading = true
+export async function fetchFromGoogleSheets(quiet = false) {
+  const url = state.settings.googleScriptUrl || DEFAULT_SCRIPT_URL
+  if (!quiet) syncStatus.loading = true
   syncStatus.error = null
+  isFetchingFromSheets = true
   try {
     const res = await fetch(url)
     const data = await res.json()
