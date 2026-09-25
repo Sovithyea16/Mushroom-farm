@@ -42,6 +42,16 @@ function add() {
     if (ty === 'text' && k === 'code' && !v) return
     rec[k] = v
   }
+  if (props.t === 'batches') {
+    if (!rec.code || !String(rec.code).trim()) {
+      showToast('សូមបញ្ចូលលេខកូដវគ្គ!', 'error', 'ខ្វះទិន្នន័យ')
+      return
+    }
+    if (rec.bags === null || rec.bags === undefined || rec.bags === '' || rec.bags <= 0) {
+      showToast('សូមបញ្ចូលចំនួនថង់ផ្សិត (ត្រូវតែធំជាង 0)!', 'error', 'ខ្វះចំនួនថង់')
+      return
+    }
+  }
   state[props.t].push(rec)
   Object.assign(draft, blank())
   showToast('បានកត់ត្រាទិន្នន័យថ្មីដោយជោគជ័យ!', 'success', tabTitleKhmer.value)
@@ -99,6 +109,12 @@ function saveEdit() {
       if (ty === 'num') editDraft.value[k] = +editDraft.value[k] || 0
       if (ty === 'batch') editDraft.value[k] = +editDraft.value[k]
       if (ty === 'batchg') editDraft.value[k] = editDraft.value[k] === '' ? '' : +editDraft.value[k]
+    }
+    if (props.t === 'batches') {
+      if (editDraft.value.bags === null || editDraft.value.bags === undefined || editDraft.value.bags === '' || editDraft.value.bags <= 0) {
+        showToast('សូមបញ្ចូលចំនួនថង់ផ្សិត (ត្រូវតែធំជាង 0)!', 'warning', 'ខ្វះចំនួនថង់')
+        return
+      }
     }
     state[props.t][idx] = { ...editDraft.value }
     if (selectedItem.value && selectedItem.value.id === editDraft.value.id) {

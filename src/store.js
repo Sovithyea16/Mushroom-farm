@@ -541,12 +541,18 @@ export async function fetchFromGoogleSheets() {
     const data = await res.json()
     if (data) {
       if (Array.isArray(data.batches)) {
-        state.batches = data.batches.map(b => ({
-          ...b,
-          id: +b.id || b.id,
-          bags: +b.bags || 0,
-          date: cleanDate(b.date),
-        }))
+        state.batches = data.batches.map(b => {
+          let bBags = b.bags
+          if (typeof bBags === 'string' && (bBags.startsWith('1899') || bBags.startsWith('1900'))) {
+            bBags = 0
+          }
+          return {
+            ...b,
+            id: +b.id || b.id,
+            bags: +bBags || 0,
+            date: cleanDate(b.date),
+          }
+        })
       }
       if (Array.isArray(data.harvests)) {
         state.harvests = data.harvests.map(h => ({
