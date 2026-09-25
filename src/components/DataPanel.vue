@@ -79,6 +79,11 @@ function add() {
   state[props.t].push(rec)
   Object.assign(draft, blank())
   showToast('បានកត់ត្រាទិន្នន័យថ្មីដោយជោគជ័យ!', 'success', tabTitleKhmer.value)
+
+  // Immediately push to Google Sheets
+  if (state.settings.autoSync !== false) {
+    pushToGoogleSheets()
+  }
 }
 
 async function del(r) {
@@ -156,6 +161,11 @@ function saveEdit() {
     }
     showEditModal.value = false
     showToast('ទិន្នន័យត្រូវបានកែប្រែ និងរក្សាទុកជោគជ័យ!', 'success', 'កែប្រែរួចរាល់')
+
+    // Immediately push to Google Sheets
+    if (state.settings.autoSync !== false) {
+      pushToGoogleSheets()
+    }
   }
 }
 

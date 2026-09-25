@@ -107,23 +107,12 @@ export let isFetchingFromSheets = false
 let autoSyncTimer = null
 
 watch(
-  () => [
-    state.batches,
-    state.harvests,
-    state.incomes,
-    state.expenses,
-    state.workers,
-    state.wages,
-    state.materials,
-    state.stockMovements,
-    state.users,
-    state.settings
-  ],
+  state,
   () => {
     // If state change was caused by fetching from Google Sheets, do NOT push it back
     if (isFetchingFromSheets) return
 
-    if (state.settings.autoSync !== false) {
+    if (state.settings && state.settings.autoSync !== false) {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         syncStatus.hasPendingChanges = true
         return
@@ -132,7 +121,7 @@ watch(
       if (autoSyncTimer) clearTimeout(autoSyncTimer)
       autoSyncTimer = setTimeout(() => {
         pushToGoogleSheets()
-      }, 800)
+      }, 600)
     }
   },
   { deep: true }
