@@ -140,29 +140,74 @@ watch(
 const AUTH_KEY = 'mushroom-farm-auth-v1'
 
 const loadSavedAuth = () => {
+  // Always clean up any legacy persistent localStorage auth
   try {
-    const saved = JSON.parse(localStorage.getItem(AUTH_KEY))
-    if (saved && typeof saved === 'object' && saved.isLoggedIn !== undefined) {
-      if (saved.role === 'admin') {
-        saved.permissions = { dash: true, batches: true, harvests: true, incomes: true, expenses: true, workers: true, inventory: true, reports: true, data: true, settings: true }
-      } else if (!saved.permissions) {
-        saved.permissions = { ...DEFAULT_USER_PERMS }
-      }
-      return saved
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(AUTH_KEY)
     }
   } catch {}
+
+  // Check sessionStorage (per-session/tab isolation)
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const saved = JSON.parse(sessionStorage.getItem(AUTH_KEY))
+      if (saved && typeof saved === 'object' && saved.isLoggedIn === true && saved.userId) {
+        if (saved.role === 'admin') {
+          saved.permissions = { dash: true, batches: true, harvests: true, incomes: true, expenses: true, workers: true, inventory: true, reports: true, data: true, settings: true }
+        } else if (!saved.permissions) {
+          saved.permissions = { ...DEFAULT_USER_PERMS }
+        }
+        return saved
+      }
+    }
+  } catch {}
+
+  // By Default: MUST LOG IN (No auto-login on opening link/session)
   return {
-    isLoggedIn: true,
-    userId: 1,
-    role: 'admin',
-    name: 'អ្នកគ្រប់គ្រង (Admin)',
-    username: 'admin',
-    permissions: { dash: true, batches: true, harvests: true, incomes: true, expenses: true, workers: true, inventory: true, reports: true, data: true, settings: true },
+    isLoggedIn: false,
+    userId: null,
+    role: 'user',
+    name: '',
+    username: '',
+    permissions: { ...DEFAULT_USER_PERMS },
   }
 }
 
 export const authState = reactive(loadSavedAuth())
-watch(authState, () => localStorage.setItem(AUTH_KEY, JSON.stringify(authState)), { deep: true })
+
+// Watcher to save active session to sessionStorage only
+watch(authState, () => {
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      if (authState.isLoggedIn && authState.userId) {
+        sessionStorage.setItem(AUTH_KEY, JSON.stringify(authState))
+      } else {
+        sessionStorage.removeItem(AUTH_KEY)
+      }
+    }
+    // Guarantee localStorage NEVER holds permanent auto-login
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(AUTH_KEY)
+    }
+  } catch {}
+}, { deep: true })
+
+// Optional 30-minute inactivity auto-lock for enhanced security
+let inactivityTimer = null
+const resetInactivityTimer = () => {
+  if (inactivityTimer) clearTimeout(inactivityTimer)
+  if (authState.isLoggedIn) {
+    inactivityTimer = setTimeout(() => {
+      logout()
+    }, 30 * 60 * 1000) // 30 minutes
+  }
+}
+
+if (typeof window !== 'undefined') {
+  ['mousemove', 'keydown', 'touchstart', 'click'].forEach(evt => {
+    window.addEventListener(evt, resetInactivityTimer, { passive: true })
+  })
+}
 
 export const currentUser = authState
 export const isAdmin = computed(() => authState.isLoggedIn && authState.role === 'admin')
@@ -235,7 +280,10 @@ export function logout() {
   authState.name = ''
   authState.username = ''
   authState.permissions = { ...DEFAULT_USER_PERMS }
-  localStorage.setItem(AUTH_KEY, JSON.stringify(authState))
+  try {
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(AUTH_KEY)
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(AUTH_KEY)
+  } catch {}
 }
 
 export function switchRole(targetUserIdOrRole, pin = '') {
